@@ -1,0 +1,32 @@
+# Copy to config.toml and edit. Secrets are read from the environment:
+#   JIRA_EMAIL            the account the bot signs in as
+#   JIRA_API_TOKEN        an API token for that account
+#   JIRA_WEBHOOK_SECRET   optional; the secret set on the Jira webhook
+
+[jira]
+base_url = "https://your-site.atlassian.net"
+# How often to look for tickets in "Ready for agent".
+poll_interval_seconds = 180
+
+# Jira project key -> GitHub repo the work lands in.
+[jira.projects]
+PAY = "your-org/payments"
+
+# Only needed for work types beyond Bug, Story, Epic, Task and Sub-task.
+# The value is bug, chore or feature.
+# [jira.issue_types]
+# Spike = "chore"
+
+# Only needed if a status is named differently from its board column.
+# [jira.columns]
+# ready_for_agent = "Ready for agent"
+
+[database]
+# Relative paths are resolved against this file's folder.
+path = "tasks.db"
+
+# Uncomment once the service has a public URL, then point a Jira webhook at
+# https://<public host>/webhooks/jira. Polling keeps running as a safety net.
+# [webhook]
+# host = "0.0.0.0"
+# port = 8080

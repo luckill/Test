@@ -26,33 +26,44 @@
     },
     "type": {
       "description": "Kind of work. bug: existing behaviour is wrong. feature: new behaviour. chore: no behaviour change (maintenance, refactoring, dependencies, tooling).",
-      "enum": ["bug", "chore", "feature"]
+      "enum": [
+        "bug",
+        "chore",
+        "feature"
+      ]
     },
     "story": {
-      "description": "What is wanted and why, in prose. For a bug: what happens, what should happen, and how to reproduce it.",
-      "type": "string",
-      "minLength": 1
+      "description": "What is wanted and why, as Markdown. For a bug: what happens, what should happen, and how to reproduce it. Empty when the ticket gave none.",
+      "type": "string"
     },
     "acceptance_criteria": {
-      "description": "Conditions that must all hold for the task to be done. Each one is a single, checkable statement.",
+      "description": "Conditions that must all hold for the task to be done, each a single checkable statement, as Markdown. Empty when the ticket gave none.",
       "type": "array",
-      "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "out_of_scope": {
-      "description": "Things that must not be done as part of this task, even if they look related.",
+      "description": "Things that must not be done as part of this task, even if they look related, as Markdown.",
       "type": "array",
       "default": [],
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "pointers": {
-      "description": "Where to start looking: file paths relative to the repo root, symbols, URLs or short notes. Hints, not requirements.",
+      "description": "Where to start looking: file paths relative to the repo root, symbols, URLs or short notes, as plain text. Hints, not requirements.",
       "type": "array",
       "default": [],
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "repo": {
       "description": "Repository the work lands in, as \"owner/name\".",
