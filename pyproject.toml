@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coding-agent"
+version = "0.1.0"
+description = "A coding agent that turns Jira tickets into pull requests."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx2",
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "mypy",
+    "ruff",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
