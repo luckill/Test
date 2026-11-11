@@ -1,0 +1,21 @@
+{
+  "source": "jira",
+  "ticket_key": "PAY-123",
+  "type": "bug",
+  "story": "Refunds for orders paid in a non-default currency are issued in the default currency, so customers get the wrong amount back. A refund should always use the currency of the original payment. Reproduce by paying an order in EUR on a USD store and refunding it.",
+  "acceptance_criteria": [
+    "A refund is issued in the currency of the original payment.",
+    "The refunded amount equals the amount paid, with no conversion applied.",
+    "A test covers a refund for an order paid in a non-default currency."
+  ],
+  "out_of_scope": [
+    "Partial refunds.",
+    "Changing how exchange rates are fetched."
+  ],
+  "pointers": [
+    "src/payments/refund.py",
+    "RefundService.issue",
+    "https://example.com/docs/refunds"
+  ],
+  "repo": "luckill/Test"
+}
