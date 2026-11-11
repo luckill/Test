@@ -129,6 +129,34 @@ store.set_status("jira", "PAY-123", TaskStatus.NEEDS_INFO)
 `handle_ticket` in `taskbot/intake.py` returns `created`, `reentered`,
 `duplicate` or `skipped`, which is where a later phase picks up.
 
+## Readiness check
+
+`taskbot/readiness.py` asks Claude whether a task is specified well enough for
+the agent to start. One model call:
+
+- marks the story, the out-of-scope list and the pointers as `present`,
+  `missing` or `unclear`;
+- says for each acceptance criterion whether a test could be written from it.
+  "Returns 404 for unknown IDs" passes; "Handles errors well" fails.
+
+The acceptance criteria as a whole are `missing` when there are none, `unclear`
+when any criterion fails that question, and `present` otherwise. A task is
+ready when the story and the acceptance criteria are present and neither
+optional field is unclear.
+
+```python
+from taskbot.readiness import check_readiness
+from taskbot.store import Store
+
+task = Store("tasks.db").get_task("jira", "AGENT-6").task
+result = check_readiness(task)   # needs ANTHROPIC_API_KEY in the environment
+print(result.ready)
+print(result.to_dict())
+```
+
+It uses `claude-opus-5-5` unless you pass `model=`. Nothing calls it from the
+intake flow yet.
+
 ## Tests
 
 ```sh

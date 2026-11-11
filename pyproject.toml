@@ -3,7 +3,7 @@ name = "taskbot"
 version = "0.1.0"
 description = "Turns tracker tickets into task records for a coding agent"
 requires-python = ">=3.11"
-dependencies = ["markdown-it-py>=3,<5"]
+dependencies = ["markdown-it-py>=3,<5", "anthropic>=2.8,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "jsonschema>=4"]
