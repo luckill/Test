@@ -1,6 +1,7 @@
 # Copy to config.toml and edit. Secrets are read from the environment:
 #   JIRA_EMAIL            the account the bot signs in as
 #   JIRA_API_TOKEN        an API token for that account
+#   ANTHROPIC_API_KEY     a Claude API key, for reading tickets and writing plans
 #   JIRA_WEBHOOK_SECRET   optional; the secret set on the Jira webhook
 
 [jira]
@@ -20,6 +21,10 @@ PAY = "your-org/payments"
 # Only needed if a status is named differently from its board column.
 # [jira.columns]
 # ready_for_agent = "Ready for agent"
+
+# Only needed to use a different Claude model.
+# [agent]
+# model = "claude-opus-5-5"
 
 [database]
 # Relative paths are resolved against this file's folder.

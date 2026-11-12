@@ -135,3 +135,25 @@ def test_thin_ticket_is_still_recorded(world):
 
 def test_schema_example_is_valid():
     SCHEMA.validate(json.loads((ROOT / "schemas" / "task.example.json").read_text()))
+
+
+def test_clarifications_are_the_questions_and_the_replies_that_follow():
+    from taskbot.intake import clarifications
+    from taskbot.jira import Comment
+
+    thread = [
+        Comment("1", "Dana", "A note from before the hand-off."),
+        Comment("2", "Task Bot", "Task received"),
+        Comment("3", "Task Bot", "Which errors?"),
+        Comment("4", "Dana", "404 and 422."),
+        Comment("5", "Task Bot", "**Technical plan**"),
+        Comment("6", "Sam", "  "),
+    ]
+    mine = {"2": "received", "3": "questions", "5": "plan"}
+    assert clarifications(thread, mine) == (
+        "## Clarifications from the ticket's comments\n\n"
+        "**The agent asked:**\n\nWhich errors?\n\n"
+        "**Dana replied:**\n\n404 and 422."
+    )
+    assert clarifications(thread[:3], mine) == ""  # asked, but nobody has replied
+    assert clarifications(thread, {"2": "received"}) == ""  # the agent never asked

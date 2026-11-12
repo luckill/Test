@@ -66,3 +66,36 @@ def test_tasks_are_kept_apart_by_ticket_and_survive_reopening(tmp_path):
 def test_set_status_for_an_unknown_task_fails(store):
     with pytest.raises(KeyError):
         store.set_status("jira", "PAY-404", TaskStatus.DONE)
+
+
+def test_triage_decision_is_saved_and_closed(store):
+    store.record_handoff(make_task(), "101")
+    handoff = store.get_handoff("jira", "PAY-1", "101")
+    assert (handoff.decided, handoff.triaged, handoff.classification, handoff.reply) == (False, False, None, None)
+
+    store.save_decision("jira", "PAY-1", "101", "complete", "**Technical plan**", plan="Do it.")
+    handoff = store.get_handoff("jira", "PAY-1", "101")
+    assert (handoff.decided, handoff.triaged, handoff.classification) == (True, False, "complete")
+    assert store.get_task("jira", "PAY-1").plan == "Do it."
+
+    store.mark_triaged("jira", "PAY-1", "101", TaskStatus.IN_PROGRESS)
+    assert store.get_handoff("jira", "PAY-1", "101").triaged
+    assert store.get_task("jira", "PAY-1").status is TaskStatus.IN_PROGRESS
+    assert store.get_handoff("jira", "PAY-1", "999") is None
+
+
+def test_a_reply_without_a_classification_still_counts_as_decided(store):
+    store.record_handoff(make_task(), "101")
+    store.save_decision("jira", "PAY-1", "101", None, "I could not assess this ticket.")
+    assert store.get_handoff("jira", "PAY-1", "101").decided
+
+
+def test_posted_comments_are_remembered_per_handoff(store):
+    store.record_handoff(make_task(), "101")
+    store.record_comment("jira", "PAY-1", "101", "received", "5001")
+    store.record_comment("jira", "PAY-1", "101", "questions", "5002")
+    store.record_comment("jira", "PAY-1", "102", "plan", "5003")
+    assert store.has_comment("jira", "PAY-1", "101", "questions")
+    assert not store.has_comment("jira", "PAY-1", "102", "questions")
+    assert store.bot_comments("jira", "PAY-1") == {"5001": "received", "5002": "questions", "5003": "plan"}
+    assert store.bot_comments("jira", "PAY-2") == {}

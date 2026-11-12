@@ -171,3 +171,21 @@ def test_default_transport_speaks_http(site, tmp_path):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_post_comment_returns_the_new_comment_id(site, jira):
+    first = jira.post_comment("PAY-1", "one")
+    second = jira.post_comment("PAY-1", "two")
+    assert first != second
+    assert [comment.id for comment in jira.get_comments("PAY-1")] == [first, second]
+
+
+def test_comments_are_read_oldest_first_across_pages(site, jira):
+    for number in range(150):
+        site.add_comment("PAY-1", f"Reply **{number}**", author="Dana" if number % 2 else "Sam")
+    comments = jira.get_comments("PAY-1")
+    assert len(comments) == 150
+    assert (comments[0].author, comments[0].body) == ("Sam", "Reply **0**")
+    assert (comments[149].author, comments[149].body) == ("Dana", "Reply **149**")
+    pages = [query for method, path, query, _ in site.requests if method == "GET" and path.endswith("/comment")]
+    assert [page["startAt"] for page in pages] == ["0", "100"]

@@ -10,6 +10,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Mapping
 
+from .llm import DEFAULT_MODEL
 from .task import TaskType
 
 
@@ -75,6 +76,7 @@ class Config:
     issue_types: Mapping[str, TaskType]  # lower-case Jira work type -> task type
     database_path: Path
     webhook: WebhookConfig | None
+    model: str = DEFAULT_MODEL  # the Claude model that reads tickets and writes plans
 
     def task_type(self, issue_type: str) -> TaskType | None:
         return self.issue_types.get(issue_type.casefold())
@@ -147,6 +149,7 @@ def load_config(path: str | Path, env: Mapping[str, str] | None = None) -> Confi
         issue_types=issue_types,
         database_path=database if database.is_absolute() else path.parent / database,
         webhook=webhook,
+        model=str(_table(data, "agent").get("model", DEFAULT_MODEL)),
     )
 
 

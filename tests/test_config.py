@@ -23,15 +23,18 @@ def test_minimal_config_gets_defaults(tmp_path):
     assert config.task_type("Spike") is None
     assert config.database_path == tmp_path / "tasks.db"
     assert config.webhook is None
+    assert config.model == "claude-opus-5-5"
 
 
 def test_overrides_and_webhook(tmp_path):
     content = MINIMAL + (
         '[jira.issue_types]\nSpike = "chore"\n[jira.columns]\nready_for_agent = "Agent queue"\n'
         '[database]\npath = "/var/lib/taskbot/tasks.db"\n[webhook]\nport = 9000\n'
+        '[agent]\nmodel = "claude-haiku-5-5"\n'
     )
     config = load_config(write(tmp_path, content), {**ENV, "JIRA_WEBHOOK_SECRET": "s3cret"})
     assert config.task_type("spike") is TaskType.CHORE
+    assert config.model == "claude-haiku-5-5"
     assert config.columns[Column.READY_FOR_AGENT] == "Agent queue"
     assert str(config.database_path) == "/var/lib/taskbot/tasks.db"
     assert (config.webhook.host, config.webhook.port, config.webhook.secret) == ("0.0.0.0", 9000, "s3cret")

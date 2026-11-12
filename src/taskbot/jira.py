@@ -43,6 +43,13 @@ class Ticket:
     status_change_id: str
 
 
+@dataclass(frozen=True)
+class Comment:
+    id: str
+    author: str  # display name
+    body: str  # Markdown
+
+
 class JiraClient:
     def __init__(
         self,
@@ -122,15 +129,37 @@ class JiraClient:
         # A ticket created straight into the status has no move to point at.
         return found or "created"
 
+    def get_comments(self, key: str) -> list[Comment]:
+        """Every comment on a ticket, oldest first, with bodies converted to Markdown."""
+        comments: list[Comment] = []
+        while True:
+            page = self._request(
+                "GET",
+                f"/rest/api/3/issue/{quote(key, safe='')}/comment",
+                params={"startAt": len(comments), "maxResults": 100, "orderBy": "created"},
+            )
+            batch = page.get("comments") or []
+            comments += [
+                Comment(
+                    id=str(item["id"]),
+                    author=(item.get("author") or {}).get("displayName") or "Someone",
+                    body=adf_to_markdown(item.get("body")),
+                )
+                for item in batch
+            ]
+            if not batch or len(comments) >= int(page.get("total", 0)):
+                return comments
+
     # -- writing -----------------------------------------------------------
 
-    def post_comment(self, key: str, markdown: str) -> None:
-        """Post a comment on a ticket. The text is Markdown."""
-        self._request(
+    def post_comment(self, key: str, markdown: str) -> str:
+        """Post a comment on a ticket and return its id. The text is Markdown."""
+        created = self._request(
             "POST",
             f"/rest/api/3/issue/{quote(key, safe='')}/comment",
             body={"body": markdown_to_adf(markdown)},
         )
+        return str(created.get("id", ""))
 
     def move_ticket(self, key: str, column: Column) -> None:
         """Move a ticket to another column. Does nothing if it is already there."""

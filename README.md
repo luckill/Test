@@ -1,10 +1,12 @@
 # taskbot
 
-Turns Jira tickets into task records for a coding agent.
+Turns Jira tickets into task records for a coding agent, and decides whether
+each one is ready to start.
 
-This is phase 1, Jira intake: when a ticket is dragged to **Ready for agent**,
-the service stores one task record for it and comments "Task received" on the
-ticket.
+When a ticket is dragged to **Ready for agent**, the service stores one task
+record for it and comments "Task received". It then reads the story: a complete
+story gets a technical plan and moves to "In progress", and a story with gaps
+gets questions and moves to "Needs info".
 
 ## How it works
 
@@ -24,6 +26,8 @@ ticket.
    recorded once, so repeat triggers for the same move are ignored. A ticket
    that leaves the column and comes back refreshes its existing task; it never
    gets a second record.
+6. **Triage.** The story is classified as complete, partial or none, and the
+   ticket is answered accordingly. See [Triage](#triage).
 
 The task format is described in [`schemas/task.schema.json`](schemas/task.schema.json).
 
@@ -43,6 +47,7 @@ GitHub repo. Then set the credentials in the environment:
 ```sh
 export JIRA_EMAIL=bot@your-company.com
 export JIRA_API_TOKEN=...
+export ANTHROPIC_API_KEY=...
 ```
 
 Comments are posted as this account, so give the bot an account of its own. It
@@ -114,6 +119,49 @@ Once the service has a public URL:
 Polling keeps running as a safety net for missed deliveries. Raise
 `poll_interval_seconds` if you want it to run less often.
 
+## Triage
+
+After a ticket is recorded, `taskbot/triage.py` decides what happens to it.
+It needs a Claude API key in `ANTHROPIC_API_KEY`.
+
+1. **Readiness check** (`taskbot/readiness.py`). One model call marks the
+   story, the out-of-scope list and the pointers as `present`, `missing` or
+   `unclear`, and says for each acceptance criterion whether a test could be
+   written from it. "Returns 404 for unknown IDs" passes; "Handles errors
+   well" fails. Every gap comes with a question for the ticket's author.
+2. **Classification.** The story is `complete` when the story and the
+   acceptance criteria are present, every criterion is testable and neither
+   optional field is unclear. It is `none` when there is no story and there are
+   no acceptance criteria. Anything in between is `partial`.
+3. **Path.**
+
+| Story | What the service does |
+| --- | --- |
+| Complete | Writes a technical plan (`taskbot/plan.py`), posts it as a comment, moves the ticket to "In progress" and starts work. |
+| Partial | Posts one question per gap and nothing else, and moves the ticket to "Needs info". |
+| None | Records the classification and leaves the ticket where it is. This path is not built yet. |
+
+Moving a ticket back to "Ready for agent" is a new hand-off, so the check
+runs again. Replies written in the ticket's comments after the agent's
+questions are added to the story, so answering in a comment works as well as
+editing the description.
+
+If the model gives no usable answer, the service says so on the ticket, moves
+it to "Needs info" and does not retry on its own. A failed call to Jira or to
+the Claude API is retried on the next poll, without asking the model again or
+posting a comment twice.
+
+"Starts work" currently means the task is marked `in_progress` and
+`start_work` in `taskbot/triage.py` is called. That function is the place for
+the implementation step, which does not exist yet.
+
+The model is `claude-opus-5-5` unless `config.toml` says otherwise:
+
+```toml
+[agent]
+model = "claude-haiku-5-5"
+```
+
 ## For later phases
 
 ```python
@@ -127,35 +175,7 @@ store.set_status("jira", "PAY-123", TaskStatus.NEEDS_INFO)
 
 `jira` is a `taskbot.jira.JiraClient` and `store` a `taskbot.store.Store`.
 `handle_ticket` in `taskbot/intake.py` returns `created`, `reentered`,
-`duplicate` or `skipped`, which is where a later phase picks up.
-
-## Readiness check
-
-`taskbot/readiness.py` asks Claude whether a task is specified well enough for
-the agent to start. One model call:
-
-- marks the story, the out-of-scope list and the pointers as `present`,
-  `missing` or `unclear`;
-- says for each acceptance criterion whether a test could be written from it.
-  "Returns 404 for unknown IDs" passes; "Handles errors well" fails.
-
-The acceptance criteria as a whole are `missing` when there are none, `unclear`
-when any criterion fails that question, and `present` otherwise. A task is
-ready when the story and the acceptance criteria are present and neither
-optional field is unclear.
-
-```python
-from taskbot.readiness import check_readiness
-from taskbot.store import Store
-
-task = Store("tasks.db").get_task("jira", "AGENT-6").task
-result = check_readiness(task)   # needs ANTHROPIC_API_KEY in the environment
-print(result.ready)
-print(result.to_dict())
-```
-
-It uses `claude-opus-5-5` unless you pass `model=`. Nothing calls it from the
-intake flow yet.
+`duplicate` or `skipped`.
 
 ## Tests
 

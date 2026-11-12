@@ -10,7 +10,7 @@ from anthropic import DefaultHttpxClient
 from taskbot.readiness import FieldStatus, ReadinessError, SYSTEM_PROMPT, check_readiness
 from taskbot.task import Task, TaskType
 
-OK = {"reason": "Clear as written.", "status": "present"}
+OK = {"reason": "Clear as written.", "status": "present", "question": ""}
 
 
 def make_task(**changes):
@@ -28,7 +28,10 @@ def make_task(**changes):
 def answer(criteria, story=OK, out_of_scope=OK, pointers=OK):
     return {
         "story": story, "out_of_scope": out_of_scope, "pointers": pointers,
-        "criteria": [{"number": n, "reason": reason, "testable": testable} for n, testable, reason in criteria],
+        "criteria": [
+            {"number": n, "reason": reason, "testable": testable, "question": "" if testable else f"Q{n}: {reason}"}
+            for n, testable, reason in criteria
+        ],
     }
 
 
@@ -65,6 +68,8 @@ def test_each_criterion_is_judged_and_one_untestable_criterion_makes_the_field_u
         ("Handles errors well", False),
     ]
     assert result.criteria[1].reason == "Say which errors, and what should happen for each."
+    assert result.criteria[1].question == "Q2: Say which errors, and what should happen for each."
+    assert result.criteria[0].question == ""
     assert result.acceptance_criteria.status is FieldStatus.UNCLEAR
     assert "criterion 2" in result.acceptance_criteria.reason
     assert result.story.status is FieldStatus.PRESENT
@@ -83,10 +88,10 @@ def test_task_with_testable_criteria_is_ready_even_without_the_optional_fields()
 
 
 @pytest.mark.parametrize("verdict_changes, task_changes", [
-    ({"story": {"reason": "It does not say what should happen.", "status": "unclear"}}, {}),
-    ({"story": {"reason": "Only a title.", "status": "missing"}}, {}),
-    ({"pointers": {"reason": "Which file is 'the usual one'?", "status": "unclear"}}, {}),
-    ({"out_of_scope": {"reason": "'Other stuff' could mean anything.", "status": "unclear"}}, {}),
+    ({"story": {"reason": "It does not say what should happen.", "status": "unclear", "question": "What should happen?"}}, {}),
+    ({"story": {"reason": "Only a title.", "status": "missing", "question": "What is wanted?"}}, {}),
+    ({"pointers": {"reason": "Not clear.", "status": "unclear", "question": "Which file is 'the usual one'?"}}, {}),
+    ({"out_of_scope": {"reason": "'Other stuff' could mean anything.", "status": "unclear", "question": ""}}, {}),
     ({}, {"acceptance_criteria": []}),
 ])
 def test_not_ready(verdict_changes, task_changes):
@@ -148,7 +153,7 @@ def test_verdicts_for_the_wrong_criteria_are_rejected(criteria):
 
 def test_refusal_and_cut_off_answers_are_errors_not_verdicts():
     refused, _ = make_client(content=[], stop_reason="refusal", stop_details={"type": "refusal", "category": "cyber", "explanation": "x"})
-    with pytest.raises(ReadinessError, match=r"declined to assess the task \(cyber\)"):
+    with pytest.raises(ReadinessError, match=r"declined the request \(cyber\)"):
         check_readiness(make_task(), client=refused)
 
     thinking_only, _ = make_client(stop_reason="max_tokens")
@@ -164,3 +169,18 @@ def test_api_errors_are_raised_as_they_are():
     client, _ = make_client(status=401, type="error", error={"type": "authentication_error", "message": "invalid x-api-key"})
     with pytest.raises(anthropic.AuthenticationError):
         check_readiness(make_task(), client=client)
+
+
+def test_gaps_carry_a_question_for_the_author_and_fall_back_to_the_reason():
+    unclear_pointers = {"reason": "Cannot tell which file is meant.", "status": "unclear", "question": ""}
+    asked_story = {"reason": "No expected behaviour.", "status": "unclear", "question": "What should the lookup return?"}
+    client, _ = make_client(answer([(1, True, "Stated.")], story=asked_story, pointers=unclear_pointers))
+    result = check_readiness(make_task(acceptance_criteria=["Returns 404 for unknown IDs"]), client=client)
+    assert result.story.question == "What should the lookup return?"
+    assert result.pointers.question == "Cannot tell which file is meant."
+    assert result.out_of_scope.question == ""
+
+    client, _ = make_client(answer([]))
+    empty = check_readiness(make_task(story="", acceptance_criteria=[]), client=client)
+    assert empty.story.question == "What should change, and why?"
+    assert empty.acceptance_criteria.question.startswith("What must be true for this to count as done?")
